@@ -1,0 +1,201 @@
+import numpy as np
+import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+import warnings
+import math
+import random
+matplotlib.style.use('ggplot')
+pd.options.mode.chained_assignment = None
+warnings.filterwarnings("ignore")
+
+jwd2=pd.read_csv('all_jwd.csv')
+jwd2=jwd2.replace(np.nan,0)
+ex=pd.DataFrame(jwd2,columns={'paecelid','censustactandblock','rawcensustactandblock'})
+jwd2=jwd2.drop(['censustractandblock','rawcensustractandblock'],axis=1)
+jwd2['latitude']=list(map(lambda m: m/1000000,jwd2["latitude"]))
+jwd2['longitude']=list(map(lambda n: n/1000000,jwd2["longitude"]))
+ex.to_csv('ex.csv',index=None)
+del ex
+'''center'''
+def rad2degr(rad):
+    return rad * 180/math.pi
+def degr2rad(degr):
+    return degr * math.pi/180
+
+def getLatLngCenter(latLngInDegr):
+    latLngInDegr['lat']=list(map(lambda a: degr2rad(a),latLngInDegr["latitude"]))
+    latLngInDegr['lng']=list(map(lambda a: degr2rad(a),latLngInDegr["longitude"]))
+    latLngInDegr['xaxis']=list(map(lambda lati,long: math.cos(lati) * math.cos(long),latLngInDegr['lat'],latLngInDegr['lng']))
+    latLngInDegr['yaxis']=list(map(lambda lati,long: math.cos(lati) * math.sin(long),latLngInDegr['lat'],latLngInDegr['lng']))
+    latLngInDegr['zaxis']=list(map(lambda lati: math.sin(lati),latLngInDegr['lat']))
+    sumX=latLngInDegr['xaxis'].sum()
+    sumY=latLngInDegr['yaxis'].sum()
+    sumZ=latLngInDegr['zaxis'].sum()
+
+    avgX = sumX / latLngInDegr.shape[0]
+    avgY = sumY / latLngInDegr.shape[0]
+    avgZ = sumZ / latLngInDegr.shape[0]
+    
+    '''convert average x, y, z coordinate to latitude and longtitude'''
+    lng1 = math.atan2(avgY, avgX);
+    hyp1 = math.sqrt(avgX * avgX + avgY * avgY)
+    lat1 = math.atan2(avgZ, hyp1)
+    latLngInDegr=latLngInDegr.drop(['xaxis','yaxis','zaxis'],axis=1)
+
+    return rad2degr(lat1), rad2degr(lng1)
+
+
+def rad(flo):
+    return flo * math.pi / 180.0
+
+    
+def calcu_distance(lat1,lng1,lat2,lng2):
+    earth_radius=6378.137
+    radlat1=rad(lat1)
+    radlat2=rad(lat2)
+    a=radlat1-radlat2
+    b=rad(lng1)-rad(lng2)
+    s=2*math.asin(math.sqrt(math.pow(math.sin(a/2),2)+math.cos(radlat1)*math.cos(radlat2)*math.pow(math.sin(b/2),2)))
+    s=s*earth_radius
+    if s<0:
+        return round(-s,2)
+    else:
+        return round(s,2)
+ 
+
+def is_null(u,v,w,x,y):
+    if (u==0 and v==0 and w==0 and x==0 and y==0):
+        return 0
+    elif (u<0 and v>0 and x>0 and w==0 and y==0):
+        return 1
+    elif (u<0 and v>0 and x>0 and w>0 and y==0):
+        return 2
+    elif (u<0 and v>0 and x>0 and w==0 and y>0):
+        return 3    
+    else:
+        return 4
+jwd2['label']=list(map(lambda u,v,w,x,y:is_null(u,v,w,x,y),jwd2['longitude'],jwd2['latitude'],jwd2['regionidcity'],jwd2['regionidcounty'],jwd2['regionidzip']))
+asdf=pd.DataFrame(jwd2,columns={'label'})
+asdf['count']=1  
+asdf=asdf.groupby(['label']).agg('sum').reset_index() 
+all_exists=jwd2[(jwd2.label==4)]
+zip_empty=jwd2[(jwd2.label==2)]
+city_empty=jwd2[(jwd2.label==3)]
+zip_city_empty=jwd2[(jwd2.label==1)]
+all_empty=jwd2[(jwd2.label==0)]
+
+a=all_exists['longitude'].min()
+b=all_exists['longitude'].max()
+col=[]
+for i in range(0,all_empty.shape[0]):
+    col.append(random.uniform(a,b))
+all_empty['longitude']=col
+del col,i,a,b
+
+a=all_exists['latitude'].min()
+b=all_exists['latitude'].max()
+col=[]
+for i in range(0,all_empty.shape[0]):
+    col.append(random.uniform(a,b))
+all_empty['latitude']=col
+del col,i,a,b
+
+zip_city_empty_new=pd.DataFrame()
+for i in range(0,10):
+    m=zip_city_empty.iloc[i,:]
+    if i%10==0:
+        print(i)
+    d1=all_exists[all_exists.regionidcounty==m['regionidcounty']]
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidzip']=e1['regionidzip']
+    m['regionidcity']=e1['regionidcity']    
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    zip_city_empty_new=pd.concat([zip_city_empty_new,f],axis=0)
+del i,d1,e,e0,m1,f
+
+zip_empty_new=pd.DataFrame()
+for i in range(0,zip_empty.shape[0]):
+    m=zip_empty.iloc[i,:]
+    if i%10==0:
+        print(i)
+    d1=all_exists
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidzip']=e1['regionidzip']   
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    zip_empty_new=pd.concat([zip_empty_new,f],axis=0)
+del i,d1,e,e0,m1,f
+
+city_empty_new=pd.DataFrame()
+for i in range(0,city_empty.shape[0]):
+    m=city_empty.iloc[i,:]
+    if i%10==0:
+        print(i)
+    d1=all_exists
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidcity']=e1['regionidcity']   
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    city_empty_new=pd.concat([city_empty_new,f],axis=0)
+del i,d1,e,e0,m1,f
+
+all_empty_new=pd.DataFrame()
+for i in range(0,all_empty.shape[0]):
+    m=all_empty.iloc[i,:]
+    if i%10==0:
+        print(i)
+    d1=all_exists
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidzip']=e1['regionidzip']
+    m['regionidcounty']=e1['regionidcounty']    
+    m['regionidcity']=e1['regionidcity']   
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    all_empty_new=pd.concat([all_empty_new,f],axis=0)
+del i,d1,e,e0,m1,f
+
+new1=pd.concat([zip_city_empty_new,zip_empty_new],axis=0)
+new1=pd.concat([new1,city_empty_new],axis=0)
+new1=pd.concat([new1,all_empty_new],axis=0)
