@@ -1,0 +1,76 @@
+'''first eda'''
+
+import pylab
+import calendar
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy import stats
+import missingno as msno
+from datetime import datetime
+import matplotlib
+import matplotlib.pyplot as plt
+import warnings
+matplotlib.style.use('ggplot')
+pd.options.mode.chained_assignment = None
+warnings.filterwarnings("ignore")
+from sklearn.preprocessing import LabelEncoder
+
+prop = pd.read_csv('properties_2016.csv')
+dat=pd.DataFrame(prop,columns=['parcelid','airconditioningtypeid','heatingorsystemtypeid'])
+prop=prop.drop(['airconditioningtypeid','heatingorsystemtypeid'],axis=1)
+dat=dat.replace(np.nan,-1)
+prop=pd.merge(prop,dat,on='parcelid',how='left')
+del dat
+train = pd.read_csv("train_2016_v2.csv")
+for c in prop.columns:
+    if prop[c].dtype == 'object':
+        prop[c]=prop[c].fillna(-1)
+        lbl = LabelEncoder()
+        lbl.fit(list(prop[c].values))
+        prop[c] = lbl.transform(list(prop[c].values))
+all_jwd=pd.DataFrame(prop,columns=['parcelid','censustractandblock','rawcensustractandblock','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'])
+all_jwd.to_csv('all_jwd.csv',index=None)
+merged = pd.merge(train,prop,on="parcelid",how="left")
+
+prop_df = prop.isnull().sum(axis=0).reset_index()
+prop_df.columns = ['column_name', 'missing_count']
+prop_df['missing_ratio'] = prop_df['missing_count'] / prop.shape[0]
+
+missing_df = merged.isnull().sum(axis=0).reset_index()
+missing_df.columns = ['column_name', 'missing_count']
+missing_df['missing_ratio'] = missing_df['missing_count'] / merged.shape[0]
+
+missing_df.ix[missing_df['missing_ratio']>0.999]
+missing_df1=merged.drop(['basementsqft','buildingclasstypeid','finishedsquarefeet13','storytypeid'],axis=1)
+'''the ratio is >0.999'''
+missing_df2=pd.DataFrame(missing_df1,columns=['parcelid','airconditioningtypeid','heatingorsystemtypeid'])
+missing_df1=missing_df1.drop(['airconditioningtypeid','heatingorsystemtypeid'],axis=1)
+missing_df2=missing_df2.replace(np.nan,-1)
+
+missing_df1=missing_df1.merge(missing_df2,on='parcelid',how='left')
+missing_df1["year"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[0]))
+missing_df1["month"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[1]))
+missing_df1["day"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[2].split()[0]))
+missing_df1=missing_df1.drop(['transactiondate','year'],axis=1)
+
+
+
+jwd=pd.DataFrame(missing_df1,columns=['parcelid','censustractandblock','rawcensustractandblock','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','logerror'])
+jwd.to_csv('jwd.csv',index=None)
+
+land=pd.DataFrame(merged,columns=['parcelid','fips','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertylandusetypeid','propertyzoningdesc','logerror'])
+land.to_csv('land.csv',index=None)
+pool=pd.DataFrame(missing_df1,columns=['parcelid','poolcnt','poolsizesum','pooltypeid10','pooltypeid2','pooltypeid7','logerror'])
+pool=pool.replace(np.nan,0)
+pool.to_csv('pool.csv',index=None)
+
+room=pd.DataFrame(missing_df1,columns=['parcelid','bathroomcnt','bedroomcnt','calculatedbathnbr','fullbathcnt','garagecarcnt','garagetotalsqft','roomcnt','threequarterbathnbr','unitcnt','logerror'])
+room.to_csv('room.csv',index=None)
+
+fac=pd.DataFrame(missing_df1,columns=['parcelid','airconditioningtypeid','fireplacecnt','fireplaceflag','hashottuborspa','heatingorsystemtypeid','yardbuildingsqft17','yardbuildingsqft26','logerror'])
+fac.to_csv('fac.csv',index=None)
+squ=pd.DataFrame(missing_df1,columns=['parcelid','calculatedfinishedsquarefeet','finishedfloor1squarefeet','finishedsquarefeet12','finishedsquarefeet15','finishedsquarefeet50','finishedsquarefeet6','logerror'])
+squ.to_csv('squ.csv',index=None)
+arc=pd.DataFrame(missing_df1,columns=['parcelid','architecturalstyletypeid','buildingqualitytypeid','decktypeid','numberofstories','typeconstructiontypeid','yearbuilt','logerror'])
+arc.to_csv('arc.csv',index=None)
