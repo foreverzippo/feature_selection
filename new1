@@ -1,11 +1,10 @@
 '''time complexity is high,it is too long to run this file'''
 '''by using the longitude and latitude to find the nearest point and fillina the empty with the property of the nearest point'''
 '''for those without longitude and latitude, use random generate'''
-'''zip_empty.shape[0] is about 600,which will cost about a day'''
+
 import numpy as np
 import pandas as pd
 import matplotlib
-import matplotlib.pyplot as plt
 import warnings
 import math
 import random
@@ -15,7 +14,8 @@ warnings.filterwarnings("ignore")
 
 jwd2=pd.read_csv('all_jwd.csv')
 jwd2=jwd2.replace(np.nan,0)
-ex=pd.DataFrame(jwd2,columns={'paecelid','censustactandblock','rawcensustactandblock'})
+ex=pd.DataFrame(jwd2,columns={'parcelid','censustractandblock','rawcensustractandblock'})
+ex=ex.replace(-1,0)
 jwd2=jwd2.drop(['censustractandblock','rawcensustractandblock'],axis=1)
 jwd2['latitude']=list(map(lambda m: m/1000000,jwd2["latitude"]))
 jwd2['longitude']=list(map(lambda n: n/1000000,jwd2["longitude"]))
@@ -66,7 +66,7 @@ def calcu_distance(lat1,lng1,lat2,lng2):
         return round(-s,2)
     else:
         return round(s,2)
- 
+
 
 def is_null(u,v,w,x,y):
     if (u==0 and v==0 and w==0 and x==0 and y==0):
@@ -89,46 +89,10 @@ city_empty=jwd2[(jwd2.label==3)]
 zip_city_empty=jwd2[(jwd2.label==1)]
 all_empty=jwd2[(jwd2.label==0)]
 
-a=all_exists['longitude'].min()
-b=all_exists['longitude'].max()
-col=[]
-for i in range(0,all_empty.shape[0]):
-    col.append(random.uniform(a,b))
-all_empty['longitude']=col
-del col,i,a,b
 
-a=all_exists['latitude'].min()
-b=all_exists['latitude'].max()
-col=[]
-for i in range(0,all_empty.shape[0]):
-    col.append(random.uniform(a,b))
-all_empty['latitude']=col
-del col,i,a,b
-
-zip_city_empty_new=pd.DataFrame()
-for i in range(0,10):
-    m=zip_city_empty.iloc[i,:]
-    if i%10==0:
-        print(i)
-    d1=all_exists[all_exists.regionidcounty==m['regionidcounty']]
-    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
-    e=d1[d1.dis==d1['dis'].min()]
-    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
-    e0['allcount']=1    
-    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
-    e0=e0.sort_values('allcount')
-    e0=e0[e0.allcount==e0['allcount'].max()]
-    if e0.shape[0]>1:
-        e1=e0.iloc[e0.shape[0]-1,:]
-    else:
-        e1=e0
-    m['regionidzip']=e1['regionidzip']
-    m['regionidcity']=e1['regionidcity']    
-    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
-    f=pd.DataFrame([m1])
-    zip_city_empty_new=pd.concat([zip_city_empty_new,f],axis=0)
-del i,d1,e,e0,m1,f
-
+#zip_empty_fillina
+#this part takes about 1 days
+#and the shorter time one is in '#zip_empty_new_fillina1' part
 zip_empty_new=pd.DataFrame()
 for i in range(0,zip_empty.shape[0]):
     m=zip_empty.iloc[i,:]
@@ -151,36 +115,40 @@ for i in range(0,zip_empty.shape[0]):
     f=pd.DataFrame([m1])
     zip_empty_new=pd.concat([zip_empty_new,f],axis=0)
 del i,d1,e,e0,m1,f
+zip_empty_new.to_csv('zip_empty_new.csv',index=None)
+print("zip_empty fillina is done!")
 
-city_empty_new=pd.DataFrame()
-for i in range(0,city_empty.shape[0]):
-    m=city_empty.iloc[i,:]
+#zip_city_empty_fillina
+def county_cnt(x):
+	if x==1286:
+		return 0
+	elif x==2061:
+		return 1
+	else:
+		return 2
+
+all_exists1=all_exists
+all_exists1['county_cnt']=0
+zip_city_empty['county_cnt']=0         
+all_exists1['county_cnt']=list(map(lambda x:county_cnt(x),all_exists1['regionidcounty']))
+zip_city_empty['county_cnt']=list(map(lambda x:county_cnt(x),zip_city_empty['regionidcounty']))
+all_exists10=all_exists1[all_exists1.county_cnt==0]
+all_exists11=all_exists1[all_exists1.county_cnt==1]
+all_exists12=all_exists1[all_exists1.county_cnt==2]
+del all_exists1
+
+#this part takes about 2 days
+zip_city_empty_new=pd.DataFrame()
+for i in range(0,zip_city_empty.shape[0]):
+    m=zip_city_empty.iloc[i,:]
     if i%10==0:
         print(i)
-    d1=all_exists
-    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
-    e=d1[d1.dis==d1['dis'].min()]
-    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
-    e0['allcount']=1    
-    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
-    e0=e0.sort_values('allcount')
-    e0=e0[e0.allcount==e0['allcount'].max()]
-    if e0.shape[0]>1:
-        e1=e0.iloc[e0.shape[0]-1,:]
+    if m['county_cnt']==0:
+    	  d1=all_exists10
+    elif m['county_cnt']==1:
+    	  d1=all_exists11
     else:
-        e1=e0
-    m['regionidcity']=e1['regionidcity']   
-    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
-    f=pd.DataFrame([m1])
-    city_empty_new=pd.concat([city_empty_new,f],axis=0)
-del i,d1,e,e0,m1,f
-
-all_empty_new=pd.DataFrame()
-for i in range(0,all_empty.shape[0]):
-    m=all_empty.iloc[i,:]
-    if i%10==0:
-        print(i)
-    d1=all_exists
+    	  d1=all_exists12
     d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
     e=d1[d1.dis==d1['dis'].min()]
     e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
@@ -193,13 +161,360 @@ for i in range(0,all_empty.shape[0]):
     else:
         e1=e0
     m['regionidzip']=e1['regionidzip']
-    m['regionidcounty']=e1['regionidcounty']    
-    m['regionidcity']=e1['regionidcity']   
+    m['regionidcity']=e1['regionidcity']    
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    zip_city_empty_new=pd.concat([zip_city_empty_new,f],axis=0)
+del i,d1,e,e0,m1,f
+zip_city_empty_new.to_csv('zip_city_empty_new.csv',index=None)
+
+print("zip_city_empty fillina is done!")
+
+#firt_all_exists_eda
+ci_lng=pd.DataFrame(all_exists,columns={'regionidzip','regionidcounty','regionidcity','longitude'})
+ci_lng1=ci_lng.groupby(['regionidzip','regionidcounty','regionidcity'])['longitude'].agg('max').reset_index()
+ci_lng2=ci_lng.groupby(['regionidzip','regionidcounty','regionidcity'])['longitude'].agg('min').reset_index()
+ci_lng1.rename(columns={'longitude':'max_lng'},inplace=True)
+ci_lng2.rename(columns={'longitude':'min_lng'},inplace=True)
+ci_lng=pd.merge(ci_lng1,ci_lng2,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+del ci_lng1,ci_lng2
+ci_lat=pd.DataFrame(all_exists,columns={'regionidzip','regionidcounty','regionidcity','latitude'})
+ci_lat1=ci_lat.groupby(['regionidzip','regionidcounty','regionidcity'])['latitude'].agg('max').reset_index()
+ci_lat2=ci_lat.groupby(['regionidzip','regionidcounty','regionidcity'])['latitude'].agg('min').reset_index()
+ci_lat1.rename(columns={'latitude':'max_lat'},inplace=True)
+ci_lat2.rename(columns={'latitude':'min_lat'},inplace=True)
+ci_lat=pd.merge(ci_lat1,ci_lat2,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+del ci_lat1,ci_lat2
+ci_geo=pd.merge(ci_lng,ci_lat,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+del ci_lng,ci_lat
+ci=pd.DataFrame(all_exists,columns={'regionidzip','regionidcounty','regionidcity'})
+ci['count']=1
+ci=ci.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+ci_geo=pd.merge(ci_geo,ci,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+ci_geo['county_cnt']=0         
+ci_geo['county_cnt']=list(map(lambda x:county_cnt(x),ci_geo['regionidcounty']))
+ci_geo_new=pd.DataFrame()
+for i in range(0,ci_geo.shape[0]):
+    m=ci_geo.iloc[i,:]
+    if m['county_cnt']==0:
+    	  d1=all_exists10
+    elif m['county_cnt']==1:
+    	  d1=all_exists11
+    else:
+    	  d1=all_exists12
+    d1=d1[((d1.regionidcity==m['regionidcity'])&(d1.regionidzip==m['regionidzip']))]
+    cen_lat1,cen_lng1=getLatLngCenter(d1)
+    m['cen_lat']=cen_lat1
+    m['cen_lng']=cen_lng1
+    print(i)
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,cen_lat1,cen_lng1),d1["latitude"],d1["longitude"]))
+    m['max_cen_dis']=d1['dis'].max()
+    m['min_cen_dis']=d1['dis'].min()
+    m1=pd.Series(m,index=['regionidzip','regionidcounty','regionidcity','max_lng','min_lng','max_lat','min_lat','county_cnt','cen_lat','cen_lng','max_cen_dis','min_cen_dis','count'])
+    f=pd.DataFrame([m1])
+    ci_geo_new=pd.concat([ci_geo_new,f],axis=0)
+ci_geo_new.to_csv('ci_geo_new.csv',index=None)
+
+
+
+#all_empty_fillina
+ci=pd.DataFrame(all_exists,columns={'regionidzip','regionidcounty','regionidcity'})
+ci['count']=1
+ci=ci.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+
+ci1=ci
+ci1.rename(columns={'regionidzip':'regionidzipexc','regionidcounty':'regionidcountyexc','regionidcity':'regionidcityexc','count':'count1'},inplace=True)
+ci1_cnt=ci.shape[0]
+col1=[]
+for i in range(1,ci.shape[0]+1):
+    col1.append(i)
+ci['count']=col1
+del i,col1
+col=[]
+for i in range(0,all_empty.shape[0]):
+	col.append(random.randint(1,ci1_cnt))
+all_empty['count']=col
+del i,col
+all_empty=pd.merge(all_empty,ci1,on='count',how='left')
+
+all_empty['regionidcounty']=list(map(lambda x,y:x+y,all_empty['regionidcounty'],all_empty['regionidcountyexc']))
+all_empty['regionidzip']=list(map(lambda x,y:x+y,all_empty['regionidzip'],all_empty['regionidzipexc']))
+all_empty['regionidcity']=list(map(lambda x,y:x+y,all_empty['regionidcity'],all_empty['regionidcityexc']))
+
+all_empty=all_empty.drop(['regionidzipexc','regionidcountyexc','regionidcityexc','count1','count'],axis=1)
+ci_geo1=ci_geo_new.drop(['county_cnt','count'],axis=1)
+all_empty=pd.merge(all_empty,ci_geo1,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+del ci_geo1
+#all_empty_fillina
+all_empty_new=pd.DataFrame()
+for i in range(0,all_empty.shape[0]):
+    m=all_empty.iloc[i,:]
+    if i%100==0:
+        print(i)
+    m['longitude']=random.uniform(m['min_lng'],m['max_lng'])
+    m['latitude']=random.uniform(m['min_lat'],m['max_lat'])
+    m['dis']=calcu_distance(m['latitude'],m['longitude'],m['cen_lat'],m['cen_lng'])
+    if m['dis']>m['max_cen_dis']:
+        while m['dis']>m['max_cen_dis']:
+            m['longitude']=random.uniform(m['min_lng'],m['max_lng'])
+            m['latitude']=random.uniform(m['min_lat'],m['max_lat'])
+            m['dis']=calcu_distance(m['latitude'],m['longitude'],m['cen_lat'],m['cen_lng'])
     m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
     f=pd.DataFrame([m1])
     all_empty_new=pd.concat([all_empty_new,f],axis=0)
-del i,d1,e,e0,m1,f
+del i,m1,f
+print("all_empty fillina is done!")				
+all_empty_new.to_csv('all_empty_new.csv',index=None)
 
-new1=pd.concat([zip_city_empty_new,zip_empty_new],axis=0)
-new1=pd.concat([new1,city_empty_new],axis=0)
-new1=pd.concat([new1,all_empty_new],axis=0)
+
+#city_empty_fillina
+#this part takes about 1days
+ci2=pd.DataFrame(all_exists,columns={'regionidzip','regionidcounty'})
+ci2=ci2.drop_duplicates()
+col=[]
+for i in range(1,ci2.shape[0]+1):
+    col.append(i)
+ci2['city_label']=col
+del col,i
+all_exists2=all_exists
+all_exists2=pd.merge(all_exists2,ci2,on=['regionidzip','regionidcounty'],how='left')
+city_empty=pd.merge(city_empty,ci2,on=['regionidzip','regionidcounty'],how='left')
+
+city_empty_new=pd.DataFrame()
+
+for i in range(0,city_empty.shape[0]):
+    m=city_empty.iloc[i,:]
+    if i%200==0:
+        print(i)
+    d1=all_exists2[all_exists2.city_label==m['city_label']]
+    if d1.shape[0]==0:
+        d1=all_exists2
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidcity']=e1['regionidcity']    
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    city_empty_new=pd.concat([city_empty_new,f],axis=0)
+del m1,f,i,e0,e1,d1
+print("city_empty fillina is done!")
+city_empty_new.to_csv('city_empty_new.csv',index=None)
+
+
+#zip_empty_new_fillina1
+#time complexity is lower than the zip_empty_fillina
+ci3=pd.DataFrame(all_exists,columns={'regionidcity','regionidcounty'})
+ci3=ci3.drop_duplicates()
+col=[]
+for i in range(1,ci3.shape[0]+1):
+    col.append(i)
+ci3['zip_label']=col
+del col,i
+all_exists3=all_exists
+all_exists3=pd.merge(all_exists3,ci3,on=['regionidcity','regionidcounty'],how='left')
+zip_empty=pd.merge(zip_empty,ci3,on=['regionidcity','regionidcounty'],how='left')
+
+zip_empty_new1=pd.DataFrame()
+
+for i in range(0,zip_empty.shape[0]):
+    m=zip_empty.iloc[i,:]
+    if i%200==0:
+        print(i)
+    d1=all_exists3[all_exists3.zip_label==m['zip_label']]
+    if d1.shape[0]==0:
+        d1=all_exists3
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['regionidzip']=e1['regionidzip']    
+    m1=pd.Series(m,index=['parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','label'])
+    f=pd.DataFrame([m1])
+    zip_empty_new1=pd.concat([zip_empty_new1,f],axis=0)
+del m1,f,i,e0,e1,d1
+print("zip_empty fillina is done!")
+
+#compare_part
+zip_empty_new2=pd.read_csv('zip_empty_new.csv')
+zip_cmp=pd.DataFrame({'col1':zip_empty_new1.regionidzip,'col2':zip_empty_new2.regionidzip})
+def cmp_zip(x,y):
+	if x==y:
+		return 1
+	else:
+		return 0
+zip_cmp['zip_cmp_label']=list(map(lambda x,y:cmp_zip(x,y),zip_cmp['col1'],zip_cmp['col2']))
+zip_empty_new_cmp_ratio=zip_cmp[zip_cmp.zip_cmp_label==0].shape[0]/zip_cmp.shape[0]
+#the ratio is 1/577,which proves that these two methods that fill the nan in zip_empty part can replace each other
+print(zip_empty_new_cmp_ratio)
+del zip_empty_new2,zip_empty_new1,zip_cmp
+#merge_part
+zip_city_empty_new=pd.read_csv('zip_city_empty_new.csv')
+all_empty_new=pd.read_csv('all_empty_new.csv')
+city_empty_new=pd.read_csv('city_empty_new.csv')
+zip_empty_new=pd.read_csv('zip_empty_new.csv')
+all_exists5=all_exists.drop(['county_cnt'],axis=1)
+jwd_fill=pd.concat([all_exists5,all_empty_new],axis=0)
+jwd_fill=pd.concat([jwd_fill,zip_empty_new],axis=0)
+jwd_fill=pd.concat([jwd_fill,city_empty_new],axis=0)
+jwd_fill=pd.concat([jwd_fill,zip_city_empty_new],axis=0)
+
+
+jwd_fill=jwd_fill.drop(['label'],axis=1)
+ex=pd.read_csv('ex.csv')
+jwd_fill=pd.merge(ex,jwd_fill,on='parcelid',how='left')
+jwd_fill.to_csv('jwd_fill.csv',index=None)
+
+
+def fill_cstb(x,y):
+    if (x==0 and y>0):
+        return x+y*1e6
+    else:
+        return x
+jwd_fill['censustractandblock']=list(map(lambda x,y:fill_cstb(x,y),jwd_fill['censustractandblock'],jwd_fill['rawcensustractandblock']))
+
+ex_fi1=jwd_fill[((jwd_fill.censustractandblock>0)&(jwd_fill.rawcensustractandblock>0))]
+ex_fi2=jwd_fill[((jwd_fill.censustractandblock==0)&(jwd_fill.rawcensustractandblock==0))]
+#fill_censustractandblock
+
+ci4=pd.DataFrame(ex_fi1,columns={'regionidcity','regionidcounty','regionidzip'})
+ci4=ci4.drop_duplicates()
+col=[]
+for i in range(1,ci4.shape[0]+1):
+    col.append(i)
+ci4['geo_label']=col
+del col,i
+all_exists4=ex_fi1
+all_exists4=pd.merge(all_exists4,ci4,on=['regionidcity','regionidcounty','regionidzip'],how='left')
+ex_fi2=pd.merge(ex_fi2,ci4,on=['regionidcity','regionidcounty','regionidzip'],how='left')
+
+ex_fi2_new1=pd.DataFrame()
+
+for i in range(0,ex_fi2.shape[0]):
+    m=ex_fi2.iloc[i,:]
+    if i%200==0:
+        print(i)
+    d1=all_exists4[all_exists4.geo_label==m['geo_label']]
+    if d1.shape[0]==0:
+        d1=all_exists4
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,m['latitude'],m['longitude']),d1["latitude"],d1["longitude"]))
+    e=d1[d1.dis==d1['dis'].min()]
+    e0=pd.DataFrame(e,columns={'censustractandblock','rawcensustractandblock','regionidzip','regionidcounty','regionidcity'})
+    e0['allcount']=1    
+    e0=e0.groupby(['censustractandblock','rawcensustractandblock','regionidzip','regionidcounty','regionidcity']).agg('sum').reset_index()
+    e0=e0.sort_values('allcount')
+    e0=e0[e0.allcount==e0['allcount'].max()]
+    if e0.shape[0]>1:
+        e1=e0.iloc[e0.shape[0]-1,:]
+    else:
+        e1=e0
+    m['censustractandblock']=e1['censustractandblock']
+    m['rawcensustractandblock']=e1['rawcensustractandblock']
+    m1=pd.Series(m,index=['parcelid','censustractandblock','rawcensustractandblock','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'])
+    f=pd.DataFrame([m1])
+    ex_fi2_new1=pd.concat([ex_fi2_new1,f],axis=0)
+del m1,f,i,e0,e1,d1
+print("ex_empty fillina is done!")
+ex_fi2_new1.to_csv('ex_fi2_new1.csv',index=None)
+ex_fi0=pd.concat([ex_fi1,ex_fi2_new1],axis=0)
+
+ex_fi0.to_csv('ex_fi0.csv',index=None)
+#regionidneighbood_fillina
+nei1=ex_fi0[ex_fi0.regionidneighborhood==0]
+nei2=ex_fi0[ex_fi0.regionidneighborhood>0]
+ex0=pd.DataFrame(ex_fi0,columns={'parcelid','censustractandblock','rawcensustractandblock'})
+nei10=nei1.drop(['censustractandblock','rawcensustractandblock'],axis=1)
+nei20=nei2.drop(['censustractandblock','rawcensustractandblock'],axis=1)
+
+nei_lng=pd.DataFrame(nei20,columns={'regionidzip','regionidcounty','regionidcity','longitude','regionidneighborhood'})
+nei_lng1=nei_lng.groupby(['regionidzip','regionidcounty','regionidcity','regionidneighborhood'])['longitude'].agg('max').reset_index()
+nei_lng2=nei_lng.groupby(['regionidzip','regionidcounty','regionidcity','regionidneighborhood'])['longitude'].agg('min').reset_index()
+nei_lng1.rename(columns={'longitude':'max_lng'},inplace=True)
+nei_lng2.rename(columns={'longitude':'min_lng'},inplace=True)
+nei_lng=pd.merge(nei_lng1,nei_lng2,on=['regionidzip','regionidcounty','regionidcity','regionidneighborhood'],how='left')
+del nei_lng1,nei_lng2
+nei_lat=pd.DataFrame(nei20,columns={'regionidzip','regionidcounty','regionidcity','latitude','regionidneighborhood'})
+nei_lat1=nei_lat.groupby(['regionidzip','regionidcounty','regionidcity','regionidneighborhood'])['latitude'].agg('max').reset_index()
+nei_lat2=nei_lat.groupby(['regionidzip','regionidcounty','regionidcity','regionidneighborhood'])['latitude'].agg('min').reset_index()
+nei_lat1.rename(columns={'latitude':'max_lat'},inplace=True)
+nei_lat2.rename(columns={'latitude':'min_lat'},inplace=True)
+nei_lat=pd.merge(nei_lat1,nei_lat2,on=['regionidzip','regionidcounty','regionidcity','regionidneighborhood'],how='left')
+del nei_lat1,nei_lat2
+nei_geo=pd.merge(nei_lng,nei_lat,on=['regionidzip','regionidcounty','regionidcity','regionidneighborhood'],how='left')
+del nei_lng,nei_lat
+nei=pd.DataFrame(nei20,columns={'regionidzip','regionidcounty','regionidcity','regionidneighborhood'})
+nei['all_count']=1
+nei=nei.groupby(['regionidzip','regionidcounty','regionidcity','regionidneighborhood']).agg('sum').reset_index()
+
+col=[]
+for i in range(1,nei_geo.shape[0]+1):
+    col.append(i)
+nei['geo_label']=col
+del col,i
+
+nei_geo=pd.merge(nei_geo,nei,on=['regionidzip','regionidcounty','regionidcity','regionidneighborhood'],how='left')
+
+nei_21=nei20
+nei_21=pd.merge(nei_21,nei,on=['regionidzip','regionidcounty','regionidcity','regionidneighborhood'],how='left')
+
+nei_geo_new=pd.DataFrame()
+for i in range(0,nei_geo.shape[0]):
+    m=nei_geo.iloc[i,:]
+    d1=nei_21[nei_21.geo_label==m['geo_label']]
+    if d1.shape[0]==0:
+        d1=nei_21   
+    nei_cen_lat1,nei_cen_lng1=getLatLngCenter(d1)
+    m['nei_cen_lat']=nei_cen_lat1
+    m['nei_cen_lng']=nei_cen_lng1
+    print(i)
+    d1['dis']=list(map(lambda x,y:calcu_distance(x,y,nei_cen_lat1,nei_cen_lng1),d1["latitude"],d1["longitude"]))
+    m['max_nei_cen_dis']=d1['dis'].max()
+    m['min_nei_cen_dis']=d1['dis'].min()
+    m1=pd.Series(m,index=['regionidzip','regionidcounty','regionidcity','regionidneighborhood','max_lng','min_lng','max_lat','min_lat','nei_cen_lat','nei_cen_lng','max_nei_cen_dis','min_nei_cen_dis','all_count'])
+    f=pd.DataFrame([m1])
+    nei_geo_new=pd.concat([nei_geo_new,f],axis=0)
+nei_geo_new=nei_geo_new.sort_values('all_count')
+nei_geo_new.to_csv('nei_geo_new.csv',index=None)
+del m1,f,i,d1
+
+nei11=nei10
+
+nei_geo_new_max=nei_geo_new.drop_duplicates(['regionidzip','regionidcounty','regionidcity'],keep='last')
+nei_geo_new_max.rename(columns={'regionidneighborhood':'regionidneighborhoodexc'},inplace=True)
+nei11=pd.merge(nei11,nei_geo_new_max,on=['regionidzip','regionidcounty','regionidcity'],how='left')
+nei11['dis']=list(map(lambda w,x,y,z:calcu_distance(w,x,y,z),nei11['latitude'],nei11['longitude'],nei11['nei_cen_lat'],nei11['nei_cen_lng']))
+def cmp(x,y,z):
+    if (x>=y and x<=z):
+        return 1
+    else:
+        return 0
+nei11['cmp_label']=list(map(lambda a,b,c:cmp(a,b,c),nei11['dis'],nei11['min_nei_cen_dis'],nei11['max_nei_cen_dis']))
+nei11_proce1=nei11[nei11.cmp_label==1]
+nei11_proce0=nei11[nei11.cmp_label==0]
+nei11_proce1['regionidneighborhood']=list(map(lambda a,b:a+b,nei11_proce1['regionidneighborhood'],nei11_proce1['regionidneighborhoodexc']))
+
+nei11_proce1=pd.DataFrame(nei11_proce1,columns={'parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'})
+nei11_proce0=pd.DataFrame(nei11_proce0,columns={'parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'})
+
+nei11=pd.concat([nei11_proce1,nei11_proce0],axis=0)
+nei20=pd.DataFrame(nei20,columns={'parcelid','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'})
+
+final_nei=pd.concat([nei11,nei20],axis=0)
+del nei11_proce1,nei11_proce0,nei11,nei20,nei10
+final=pd.merge(ex0,final_nei,on='parcelid',how='left')
+final.to_csv('final_geo.csv',index=None)
+#this flie takes a long time to run
