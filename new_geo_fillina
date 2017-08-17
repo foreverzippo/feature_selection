@@ -309,7 +309,7 @@ print("city_empty fillina is done!")
 city_empty_new.to_csv('city_empty_new.csv',index=None)
 
 
-#zip_empty_new_fillina1
+'''#zip_empty_new_fillina1
 #time complexity is lower than the zip_empty_fillina
 ci3=pd.DataFrame(all_exists,columns={'regionidcity','regionidcounty'})
 ci3=ci3.drop_duplicates()
@@ -362,6 +362,7 @@ zip_empty_new_cmp_ratio=zip_cmp[zip_cmp.zip_cmp_label==0].shape[0]/zip_cmp.shape
 #the ratio is 1/577,which proves that these two methods that fill the nan in zip_empty part can replace each other
 print(zip_empty_new_cmp_ratio)
 del zip_empty_new2,zip_empty_new1,zip_cmp
+'''
 #merge_part
 zip_city_empty_new=pd.read_csv('zip_city_empty_new.csv')
 all_empty_new=pd.read_csv('all_empty_new.csv')
