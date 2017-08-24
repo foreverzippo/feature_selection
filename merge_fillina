@@ -1,0 +1,41 @@
+import numpy as np
+import pandas as pd
+import warnings
+pd.options.mode.chained_assignment = None
+warnings.filterwarnings("ignore")
+from functools import reduce 
+
+room_new=pd.read_csv('./data/prop_room_new.csv')
+squ_new=pd.read_csv('./data/prop_squ.csv')
+pool_new=pd.read_csv('./data/prop_pool.csv')
+land_new=pd.read_csv('./data/prop_land_new.csv')
+fac_new=pd.read_csv('./data/prop_fac_new.csv')
+arc_new=pd.read_csv('./data/prop_arc_new.csv')
+geo_new=pd.read_csv('./data/final1_new.csv')
+tax_new=pd.read_csv('./data/prop_tax_new.csv')
+
+def nan_eda(a):
+    a_nan = a.isnull().sum(axis=0).reset_index()
+    a_nan.columns = ['column_name', 'missing_count']
+    a_nan['missing_ratio'] = a_nan['missing_count'] / a.shape[0]
+    return a_nan
+    
+def mer(a,b,c,d,e,f,g,h,i):
+    data_frames = [a,b,c,d,e,f,g,h]
+    data_frames = reduce(lambda  left,right: pd.merge(left,right,on=[i],how='left'), data_frames)
+    return data_frames
+new_all=mer(room_new,squ_new,pool_new,land_new,fac_new,arc_new,geo_new,tax_new,'parcelid')
+new_all_nan=nan_eda(new_all)
+
+new_all.to_csv('./data/data_fillina.csv',index=None)
+
+train=pd.read_csv('./data/train_2016_v2.csv')
+
+merged=pd.merge(train,new_all,on='parcelid',how='left')
+
+merged["year"] = merged.transactiondate.map(lambda x: int(str(x).split("-")[0]))
+merged["month"] = merged.transactiondate.map(lambda x: int(str(x).split("-")[1]))
+merged["day"] = merged.transactiondate.map(lambda x: int(str(x).split("-")[2].split()[0]))
+
+merged=merged.drop(['transactiondate'],axis=1)
+merged.to_csv('./data/new_merged.csv',index=None)
