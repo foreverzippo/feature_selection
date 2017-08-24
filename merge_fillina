@@ -27,7 +27,7 @@ def mer(a,b,c,d,e,f,g,h,i):
 new_all=mer(room_new,squ_new,pool_new,land_new,fac_new,arc_new,geo_new,tax_new,'parcelid')
 new_all_nan=nan_eda(new_all)
 
-new_all.to_csv('./data/data_fillina.csv',index=None)
+new_all.to_csv('./data/data_fillina1.csv',index=None)
 
 train=pd.read_csv('./data/train_2016_v2.csv')
 
@@ -38,4 +38,4 @@ merged["month"] = merged.transactiondate.map(lambda x: int(str(x).split("-")[1])
 merged["day"] = merged.transactiondate.map(lambda x: int(str(x).split("-")[2].split()[0]))
 
 merged=merged.drop(['transactiondate'],axis=1)
-merged.to_csv('./data/new_merged.csv',index=None)
+merged.to_csv('./data/new_merged1.csv',index=None)
