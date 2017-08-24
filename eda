@@ -1,7 +1,3 @@
-'''first eda'''
-
-import pylab
-import calendar
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -10,67 +6,463 @@ import missingno as msno
 from datetime import datetime
 import matplotlib
 import matplotlib.pyplot as plt
+import random
 import warnings
 matplotlib.style.use('ggplot')
 pd.options.mode.chained_assignment = None
 warnings.filterwarnings("ignore")
 from sklearn.preprocessing import LabelEncoder
+from functools import reduce 
 
-prop = pd.read_csv('properties_2016.csv')
+def ret_ran_quant(b,c,d,e):
+    return random.randint(int(b.quantile(q=[c])[e].sum()),int(b.quantile(q=[d])[e].sum()))
+
+def ret_median(b,c):
+    return b[c].median()
+
+def ret_ran_min_max(b,c):
+    return random.randint(int(b[c].min()),int(b[c].max()))
+
+def ret_mean(b,c):
+    return int(b[c].mean())
+
+def fill_fac_emp(i,a,b,c):
+    if i==1:
+        return a+ret_ran_quant(c,0.25,0.75,b)
+    elif i==2:
+        return a+ret_median(c,b)
+    elif i==3:
+        return a+ret_ran_min_max(c,b)
+    elif i==4:
+        return a+ret_mean(c,b)
+    else:
+        return a
+    
+def merge_fac_label(a,b,c):
+    col=[]
+    for i in range(1,a.shape[0]+1):
+        col.append(random.randint(b,c))
+    a['fac_label']=col
+    return a
+
+def merge_yearbuilt_label(a,b,c):
+    col=[]
+    for i in range(1,a.shape[0]+1):
+        col.append(random.randint(b,c))
+    a['arc_label']=col
+    return a
+
+
+
+def cleaningzero(x,y):
+    if x==0 and y!=0:
+        return 0
+    else:
+        return y
+
+prop = pd.read_csv('./data/properties_2016.csv')
 dat=pd.DataFrame(prop,columns=['parcelid','airconditioningtypeid','heatingorsystemtypeid'])
 prop=prop.drop(['airconditioningtypeid','heatingorsystemtypeid'],axis=1)
 dat=dat.replace(np.nan,-1)
 prop=pd.merge(prop,dat,on='parcelid',how='left')
 del dat
-train = pd.read_csv("train_2016_v2.csv")
+train = pd.read_csv("./data/train_2016_v2.csv")
 for c in prop.columns:
     if prop[c].dtype == 'object':
         prop[c]=prop[c].fillna(-1)
         lbl = LabelEncoder()
         lbl.fit(list(prop[c].values))
         prop[c] = lbl.transform(list(prop[c].values))
+
+#split
 all_jwd=pd.DataFrame(prop,columns=['parcelid','censustractandblock','rawcensustractandblock','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood'])
-all_jwd.to_csv('all_jwd.csv',index=None)
-merged = pd.merge(train,prop,on="parcelid",how="left")
+all_jwd.to_csv('./data/prop_jwd.csv',index=None)
 
-prop_df = prop.isnull().sum(axis=0).reset_index()
-prop_df.columns = ['column_name', 'missing_count']
-prop_df['missing_ratio'] = prop_df['missing_count'] / prop.shape[0]
+land=pd.DataFrame(prop,columns=['parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc'])
+land1=pd.DataFrame(prop,columns=['parcelid','fips','propertylandusetypeid'])
+land.to_csv('./data/prop_land.csv',index=None)
+land1.to_csv('./data/prop_land1.csv',index=None)
 
-missing_df = merged.isnull().sum(axis=0).reset_index()
-missing_df.columns = ['column_name', 'missing_count']
-missing_df['missing_ratio'] = missing_df['missing_count'] / merged.shape[0]
+arc=pd.DataFrame(prop,columns=['parcelid','architecturalstyletypeid','buildingqualitytypeid','decktypeid','numberofstories','typeconstructiontypeid','yearbuilt'])
+arc.to_csv('./data/prop_arc.csv',index=None)
 
-missing_df.ix[missing_df['missing_ratio']>0.999]
-missing_df1=merged.drop(['basementsqft','buildingclasstypeid','finishedsquarefeet13','storytypeid'],axis=1)
-'''the ratio is >0.999'''
-missing_df2=pd.DataFrame(missing_df1,columns=['parcelid','airconditioningtypeid','heatingorsystemtypeid'])
-missing_df1=missing_df1.drop(['airconditioningtypeid','heatingorsystemtypeid'],axis=1)
-missing_df2=missing_df2.replace(np.nan,-1)
+room=pd.DataFrame(prop,columns=['parcelid','bathroomcnt','bedroomcnt','calculatedbathnbr','fullbathcnt','garagecarcnt','garagetotalsqft','roomcnt','threequarterbathnbr','unitcnt'])
+room.to_csv('./data/prop_room.csv',index=None)
 
-missing_df1=missing_df1.merge(missing_df2,on='parcelid',how='left')
-missing_df1["year"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[0]))
-missing_df1["month"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[1]))
-missing_df1["day"] = missing_df1.transactiondate.map(lambda x: int(str(x).split("-")[2].split()[0]))
-missing_df1=missing_df1.drop(['transactiondate','year'],axis=1)
+fac=pd.DataFrame(prop,columns=['parcelid','airconditioningtypeid','fireplacecnt','fireplaceflag','hashottuborspa','heatingorsystemtypeid','yardbuildingsqft17','yardbuildingsqft26'])
+fac.to_csv('./data/prop_fac.csv',index=None)
+
+tax=pd.DataFrame(prop,columns={'parcelid','assessmentyear','structuretaxvaluedollarcnt','taxamount','taxdelinquencyflag','taxdelinquencyyear','taxvaluedollarcnt'})
+tax.to_csv('./data/prop_tax.csv',index=None)
+#(zero_fillina)
+pool=pd.DataFrame(prop,columns=['parcelid','poolcnt','poolsizesum','pooltypeid10','pooltypeid2','pooltypeid7'])
+pool1=pool.replace(np.nan,0)
+pool1.to_csv('./data/prop_pool.csv',index=None)
+
+squ=pd.DataFrame(prop,columns=['parcelid','calculatedfinishedsquarefeet','finishedfloor1squarefeet','finishedsquarefeet12','finishedsquarefeet15','finishedsquarefeet50','finishedsquarefeet6'])
+squ1=squ.replace(np.nan,0)
+squ1.to_csv('./data/prop_squ.csv',index=None)
+
+#nan_eda
+def nan_eda(a):
+    a_nan = a.isnull().sum(axis=0).reset_index()
+    a_nan.columns = ['column_name', 'missing_count']
+    a_nan['missing_ratio'] = a_nan['missing_count'] / a.shape[0]
+    return a_nan
+
+room_nan=nan_eda(room)
+all_jwd_nan=nan_eda(all_jwd)
+fac_nan=nan_eda(fac)
+arc_nan=nan_eda(arc)
+land_nan=nan_eda(land)
+tax_nan=nan_eda(tax)
+#tax
+def return_int(a,b,c):
+    if a==-1:
+        return a+random.randint(b,c)
+    else:
+        return a
+tax1=pd.DataFrame(tax,columns={'parcelid','assessmentyear'})
+tax1=tax1.replace(np.nan,-1)
+tax=tax.drop(['assessmentyear'],axis=1)
+tax1['assessmentyear']=list(map(lambda a:return_int(a,2015,2016),tax1['assessmentyear']))
+tax=pd.merge(tax,tax1,on='parcelid',how='left')
+del tax1
+
+tax1=tax1=pd.DataFrame(tax,columns={'parcelid','taxdelinquencyyear'})
+tax1=tax1.replace(np.nan,-1)
+tax=tax.drop(['taxdelinquencyyear'],axis=1)
+tax1['taxdelinquencyyear']=list(map(lambda a:return_int(a,1,100),tax1['taxdelinquencyyear']))
+tax=pd.merge(tax,tax1,on='parcelid',how='left')
+del tax1
+
+def ret_tax_quant(a,b,c):
+    return a.quantile(q=[b])[c].sum()
+
+def ret_tax_rand(a,b,c):
+    if a==0:
+        return a+random.uniform(b,c)
+    else:
+        return a
+
+tax=tax.replace(np.nan,0)
+taxamount1=ret_tax_quant(tax,0.25,'taxamount')
+taxamount2=ret_tax_quant(tax,0.75,'taxamount')
+tax['taxamount']=list(map(lambda a:ret_tax_rand(a,taxamount1,taxamount2),tax['taxamount']))
+
+taxvaluedollarcnt1=ret_tax_quant(tax,0.25,'taxvaluedollarcnt')
+taxvaluedollarcnt2=ret_tax_quant(tax,0.75,'taxvaluedollarcnt')
+tax['taxvaluedollarcnt']=list(map(lambda a:ret_tax_rand(a,taxvaluedollarcnt1,taxvaluedollarcnt2),tax['taxamount']))
+
+structuretaxvaluedollarcnt1=ret_tax_quant(tax,0.25,'structuretaxvaluedollarcnt')
+structuretaxvaluedollarcnt2=ret_tax_quant(tax,0.75,'structuretaxvaluedollarcnt')
+tax['structuretaxvaluedollarcnt']=list(map(lambda a:ret_tax_rand(a,structuretaxvaluedollarcnt1,structuretaxvaluedollarcnt2),tax['taxamount']))
+tax.to_csv('./data/prop_tax_new.csv',index=None)
+
+#fac
+fac1=pd.DataFrame(fac,columns={'parcelid','fireplacecnt'})
+fac2=fac.drop(['fireplacecnt'],axis=1)
+fac1=fac1.replace(np.nan,0)
+fac1=fac1.merge(fac2,on='parcelid',how='left')
+fac_yard=pd.DataFrame(fac1,columns={'parcelid','yardbuildingsqft17','yardbuildingsqft26'})
+fac_yard1=fac_yard.replace(np.nan,0)
+fac1=fac1.drop(['yardbuildingsqft17','yardbuildingsqft26'],axis=1)
+fac_yard2=fac_yard1[((fac_yard1.yardbuildingsqft17>0)&(fac_yard1.yardbuildingsqft26>0))]
+fac_yard3=fac_yard1[((fac_yard1.yardbuildingsqft17==0)&(fac_yard1.yardbuildingsqft26==0))]
+fac_yard4=fac_yard1[((fac_yard1.yardbuildingsqft17>0)&(fac_yard1.yardbuildingsqft26==0))]
+fac_yard5=fac_yard1[((fac_yard1.yardbuildingsqft17==0)&(fac_yard1.yardbuildingsqft26>0))]
+
+fac_yard4=merge_fac_label(fac_yard4,1,4)
+fac_yard5=merge_fac_label(fac_yard5,1,4)
+
+fac_yard5['yardbuildingsqft17']=list(map(lambda i,a:fill_fac_emp(i,a,'yardbuildingsqft17',fac_yard2),fac_yard5['fac_label'],fac_yard5['yardbuildingsqft17']))
+fac_yard4['yardbuildingsqft26']=list(map(lambda i,a:fill_fac_emp(i,a,'yardbuildingsqft26',fac_yard2),fac_yard4['fac_label'],fac_yard4['yardbuildingsqft26']))
+fac_yard0=pd.concat([fac_yard5,fac_yard4],axis=0)
+fac_yard0=fac_yard0.drop(['fac_label'],axis=1)
+fac_yard0=pd.concat([fac_yard0,fac_yard2],axis=0)
+fac_yard0=pd.concat([fac_yard0,fac_yard3],axis=0)
+fac1=pd.merge(fac_yard0,fac1,on='parcelid',how='left')
+fac1.to_csv('./data/prop_fac_new.csv',index=None)
+del fac2,fac_yard0,fac_yard1,fac_yard3
+
+#room_analysis
+
+room2=room.copy()
+room2["garagetotalsqft"]=list(map(lambda x,y:cleaningzero(x,y),room2["garagecarcnt"],room2["garagetotalsqft"]))
+
+def mer_mean(a,b,c):
+    a1=a.groupby([b])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_mean')},inplace=True)
+    return a1
+def mer_max(a,b,c):
+    a1=a.groupby([b])[c].max().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_max')},inplace=True)
+    return a1
+
+def mer_min(a,b,c):
+    a1=a.groupby([b])[c].min().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_min')},inplace=True)
+    return a1
+
+def mer_count(a,b,c):
+    a1=a.groupby([b])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_count')},inplace=True)
+    return a1
+
+def mer_median(a,b,c):
+    a1=a.groupby([b])[c].median().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_median')},inplace=True)
+    return a1
+
+def mer_mad(a,b,c):
+    a1=a.groupby([b])[c].mad().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_mad')},inplace=True)
+    return a1
+
+def mer_quantile(a,b,c,i):
+    m=a.groupby([b])[c].quantile(q=[i]).to_frame().reset_index()
+    m.rename(columns={c:c+str('_quantile_')+str(i)},inplace=True)
+    m=m.drop(['level_1'],axis=1)
+    return m
+
+def php(a,b,c):
+    return a[c]-a[b]
 
 
+def gar_eda(a,b,c):
+    data_frames = [mer_mean(a,b,c),mer_max(a,b,c),mer_min(a,b,c),mer_count(a,b,c),mer_median(a,b,c),mer_mad(a,b,c),mer_quantile(a,b,c,0.25),mer_quantile(a,b,c,0.75)]
+    data_frames = reduce(lambda  left,right: pd.merge(left,right,on=[b],how='left'), data_frames)
+    data_frames['php']=php(data_frames,c+str('_min'),c+str('_max'))
+    return data_frames
 
-jwd=pd.DataFrame(missing_df1,columns=['parcelid','censustractandblock','rawcensustractandblock','longitude','latitude','regionidcity','regionidcounty','regionidzip','regionidneighborhood','logerror'])
-jwd.to_csv('jwd.csv',index=None)
+def none_zero_mer_mean(a,b,c):
+    a1=a.groupby([b])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_mean')},inplace=True)
+    return a1
+def none_zero_mer_max(a,b,c):
+    a1=a.groupby([b])[c].max().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_max')},inplace=True)
+    return a1
 
-land=pd.DataFrame(merged,columns=['parcelid','fips','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertylandusetypeid','propertyzoningdesc','logerror'])
-land.to_csv('land.csv',index=None)
-pool=pd.DataFrame(missing_df1,columns=['parcelid','poolcnt','poolsizesum','pooltypeid10','pooltypeid2','pooltypeid7','logerror'])
-pool=pool.replace(np.nan,0)
-pool.to_csv('pool.csv',index=None)
+def none_zero_mer_min(a,b,c):
+    a1=a.groupby([b])[c].min().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_min')},inplace=True)
+    return a1
 
-room=pd.DataFrame(missing_df1,columns=['parcelid','bathroomcnt','bedroomcnt','calculatedbathnbr','fullbathcnt','garagecarcnt','garagetotalsqft','roomcnt','threequarterbathnbr','unitcnt','logerror'])
-room.to_csv('room.csv',index=None)
+def none_zero_mer_count(a,b,c):
+    a1=a.groupby([b])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_count')},inplace=True)
+    return a1
 
-fac=pd.DataFrame(missing_df1,columns=['parcelid','airconditioningtypeid','fireplacecnt','fireplaceflag','hashottuborspa','heatingorsystemtypeid','yardbuildingsqft17','yardbuildingsqft26','logerror'])
-fac.to_csv('fac.csv',index=None)
-squ=pd.DataFrame(missing_df1,columns=['parcelid','calculatedfinishedsquarefeet','finishedfloor1squarefeet','finishedsquarefeet12','finishedsquarefeet15','finishedsquarefeet50','finishedsquarefeet6','logerror'])
-squ.to_csv('squ.csv',index=None)
-arc=pd.DataFrame(missing_df1,columns=['parcelid','architecturalstyletypeid','buildingqualitytypeid','decktypeid','numberofstories','typeconstructiontypeid','yearbuilt','logerror'])
-arc.to_csv('arc.csv',index=None)
+def none_zero_mer_median(a,b,c):
+    a1=a.groupby([b])[c].median().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_median')},inplace=True)
+    return a1
+
+def none_zero_mer_mad(a,b,c):
+    a1=a.groupby([b])[c].mad().to_frame().reset_index()
+    a1.rename(columns={c:str('none_zero_')+c+str('_mad')},inplace=True)
+    return a1
+
+def none_zero_mer_quantile(a,b,c,i):
+    m=a.groupby([b])[c].quantile(q=[i]).to_frame().reset_index()
+    m.rename(columns={c:str('none_zero_')+c+str('_quantile_')+str(i)},inplace=True)
+    m=m.drop(['level_1'],axis=1)
+    return m
+
+def none_zero_php(a,b,c):
+    return a[c]-a[b]
+
+
+def none_zero_gar_eda(a,b,c):
+    data_frames = [none_zero_mer_mean(a,b,c),none_zero_mer_max(a,b,c),none_zero_mer_min(a,b,c),none_zero_mer_count(a,b,c),none_zero_mer_median(a,b,c),none_zero_mer_mad(a,b,c),none_zero_mer_quantile(a,b,c,0.25),none_zero_mer_quantile(a,b,c,0.75)]
+    data_frames = reduce(lambda  left,right: pd.merge(left,right,on=[b],how='left'), data_frames)
+    data_frames['none_zero_php']=php(data_frames,str('none_zero_')+c+str('_min'),str('none_zero_')+c+str('_max'))
+    return data_frames
+
+gar=gar_eda(room2,'garagecarcnt','garagetotalsqft')
+room3=room2[room2.garagetotalsqft>0]
+gar1=none_zero_gar_eda(room3,'garagecarcnt','garagetotalsqft')
+   
+gar_all=pd.merge(gar,gar1,on='garagecarcnt',how='outer')
+gar_all.to_csv('./data/gar_all.csv',index=None)
+
+gar_mer=pd.DataFrame(room2,columns={'parcelid','garagecarcnt','garagetotalsqft'})
+gar_mer=gar_mer.replace(np.nan,-1)
+room3=room2.drop(['garagecarcnt','garagetotalsqft'],axis=1)
+
+gar_mer=gar_mer.merge(gar1,on='garagecarcnt',how='left')
+def mer_fill(a,b,c,d):
+    if a==0:
+        return 0
+    elif a==-1:
+        return -1
+    elif a>0 and b==0:
+        return b+random.randint(int(c),int(d))
+    else:
+        return b
+gar_mer['garagetotalsqft']=list(map(lambda a,b,c,d:mer_fill(a,b,c,d),gar_mer['garagecarcnt'],gar_mer['garagetotalsqft'],gar_mer['none_zero_garagetotalsqft_min'],gar_mer['none_zero_garagetotalsqft_max']))
+gar_mer.garagetotalsqft.describe()
+gar_mer1=pd.DataFrame(gar_mer,columns={'parcelid','garagecarcnt','garagetotalsqft'})
+room4=pd.merge(gar_mer1,room3,on='parcelid',how='left')
+room4=room4.replace(np.nan,0)
+room4.to_csv('./data/prop_room_new.csv',index=None)
+del gar_mer,gar_mer1
+#arc
+arc=arc.replace(np.nan,0)
+arc1=pd.DataFrame(arc,columns={'parcelid','yearbuilt'})
+arc=arc.drop(['yearbuilt'],axis=1)
+
+arc1_emp=arc1[arc1.yearbuilt==0]
+arc1_emp1=arc1[arc1.yearbuilt>0]
+arc1_emp=merge_yearbuilt_label(arc1_emp,1,4)
+
+def fill_arc_emp(i,a,b,c,d,e,f,g):
+    if i==1:
+        return a+random.randint(b,c)
+    elif i==2:
+        return a+d
+    elif i==3:
+        return a+random.randint(e,f)
+    elif i==4:
+        return a+g
+    else:
+        return a
+min_yearbuilt=int(arc1_emp1['yearbuilt'].min())
+max_yearbuilt=int(arc1_emp1['yearbuilt'].max())
+mean_yearbuilt=int(arc1_emp1['yearbuilt'].mean())
+median_yearbuilt=int(arc1_emp1['yearbuilt'].median())
+quantile1_yearbuilt=int(arc1_emp1.quantile(q=[0.25])['yearbuilt'].sum())
+quantile2_yearbuilt=int(arc1_emp1.quantile(q=[0.75])['yearbuilt'].sum())
+arc1_emp['yearbuilt']=list(map(lambda i,a:fill_arc_emp(i,a,quantile1_yearbuilt,quantile2_yearbuilt,median_yearbuilt,min_yearbuilt,max_yearbuilt,mean_yearbuilt),arc1_emp['arc_label'],arc1_emp['yearbuilt']))
+
+arc1_emp=arc1_emp.drop(['arc_label'],axis=1)
+arc1_all=pd.concat([arc1_emp,arc1_emp1],axis=0)
+arc=arc.merge(arc1_all,on='parcelid',how='left')
+
+arc.to_csv('./data/prop_arc_new.csv',index=None)
+
+
+#land
+
+land=land.replace(np.nan,0)
+land2=land[((land.landtaxvaluedollarcnt>0)&(land.lotsizesquarefeet>0))]
+land3=land[((land.landtaxvaluedollarcnt==0)&(land.lotsizesquarefeet==0))]
+land4=land[((land.landtaxvaluedollarcnt>0)&(land.lotsizesquarefeet==0))]
+land5=land[((land.landtaxvaluedollarcnt==0)&(land.lotsizesquarefeet>0))]
+
+
+def land_mer_mean(a,b,c,d):
+    a1=a.groupby([b,d])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_mean')},inplace=True)
+    return a1
+def land_mer_max(a,b,c,d):
+    a1=a.groupby([b,d])[c].max().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_max')},inplace=True)
+    return a1
+
+def land_mer_min(a,b,c,d):
+    a1=a.groupby([b,d])[c].min().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_min')},inplace=True)
+    return a1
+
+def land_mer_count(a,b,c,d):
+    a1=a.groupby([b,d])[c].mean().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_count')},inplace=True)
+    return a1
+
+def land_mer_median(a,b,c,d):
+    a1=a.groupby([b,d])[c].median().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_median')},inplace=True)
+    return a1
+
+def land_mer_mad(a,b,c,d):
+    a1=a.groupby([b,d])[c].mad().to_frame().reset_index()
+    a1.rename(columns={c:c+str('_mad')},inplace=True)
+    return a1
+
+def land_mer_quantile(a,b,c,i,d):
+    m=a.groupby([b,d])[c].quantile(q=[i]).to_frame().reset_index()
+    m.rename(columns={c:c+str('_quantile_')+str(i)},inplace=True)
+    m=m.drop(['level_2'],axis=1)
+    return m
+
+def land_php(a,b,c):
+    return a[c]-a[b]
+
+def lan_eda(a,b,c,d):
+    data_frames = [land_mer_mean(a,b,c,d),land_mer_max(a,b,c,d),land_mer_min(a,b,c,d),land_mer_count(a,b,c,d),land_mer_median(a,b,c,d),land_mer_mad(a,b,c,d),land_mer_quantile(a,b,c,0.25,d),land_mer_quantile(a,b,c,0.75,d)]
+    data_frames = reduce(lambda  left,right: pd.merge(left,right,on=[b,d],how='left'), data_frames)
+    data_frames[c+'land_php']=land_php(data_frames,c+str('_min'),c+str('_max'))
+    return data_frames
+
+land_all_exists_tax=lan_eda(land2,'propertycountylandusecode','landtaxvaluedollarcnt','propertyzoningdesc')
+land_all_exists_size=lan_eda(land2,'propertycountylandusecode','lotsizesquarefeet','propertyzoningdesc')
+
+def merge_land_label(a,b,c,d):
+    col=[]
+    for i in range(1,a.shape[0]+1):
+        col.append(random.randint(b,c))
+    a[d]=col
+    return a
+
+def fill_land_empty1(a,b,c,d,e,f,h,i):
+    if (a==0 and b==1):
+        return a+int(c)
+    elif (a==0 and b==2):
+        return a+int(d)
+    elif (a==0 and b==3):
+        return a+random.randint(int(e),int(f))
+    elif (a==0 and b==4):
+        return a+random.randint(int(h),int(i))
+    else:
+        return a
+
+land3=merge_land_label(land3,1,4,'land_label')
+land4=merge_land_label(land4,1,4,'land_label')
+land5=merge_land_label(land5,1,4,'land_label')
+land4=land4.merge(land_all_exists_size,on=['propertycountylandusecode','propertyzoningdesc'],how='left')
+land4=land4.replace(np.nan,0)
+land4['lotsizesquarefeet']=list(map(lambda a,b,c,d,e,f,h,i:fill_land_empty1(a,b,c,d,e,f,h,i),land4['lotsizesquarefeet'],land4['land_label'],land4['lotsizesquarefeet_mean'],land4['lotsizesquarefeet_median'],land4['lotsizesquarefeet_min'],land4['lotsizesquarefeet_max'],land4['lotsizesquarefeet_quantile_0.25'],land4['lotsizesquarefeet_quantile_0.75']))
+
+land5=land5.merge(land_all_exists_tax,on=['propertycountylandusecode','propertyzoningdesc'],how='left')
+land5=land5.replace(np.nan,0)
+land5['landtaxvaluedollarcnt']=list(map(lambda a,b,c,d,e,f,h,i:fill_land_empty1(a,b,c,d,e,f,h,i),land5['landtaxvaluedollarcnt'],land5['land_label'],land5['landtaxvaluedollarcnt_mean'],land5['landtaxvaluedollarcnt_median'],land5['landtaxvaluedollarcnt_min'],land5['landtaxvaluedollarcnt_max'],land5['landtaxvaluedollarcnt_quantile_0.25'],land5['landtaxvaluedollarcnt_quantile_0.75']))
+
+land3=land3.merge(land_all_exists_size,on=['propertycountylandusecode','propertyzoningdesc'],how='left')
+land3=land3.merge(land_all_exists_tax,on=['propertycountylandusecode','propertyzoningdesc'],how='left')
+land3=land3.replace(np.nan,0)
+
+land3['landtaxvaluedollarcnt']=list(map(lambda a,b,c,d,e,f,h,i:fill_land_empty1(a,b,c,d,e,f,h,i),land3['landtaxvaluedollarcnt'],land3['land_label'],land3['landtaxvaluedollarcnt_mean'],land3['landtaxvaluedollarcnt_median'],land3['landtaxvaluedollarcnt_min'],land3['landtaxvaluedollarcnt_max'],land3['landtaxvaluedollarcnt_quantile_0.25'],land3['landtaxvaluedollarcnt_quantile_0.75']))
+land3['lotsizesquarefeet']=list(map(lambda a,b,c,d,e,f,h,i:fill_land_empty1(a,b,c,d,e,f,h,i),land3['lotsizesquarefeet'],land3['land_label'],land3['lotsizesquarefeet_mean'],land3['lotsizesquarefeet_median'],land3['lotsizesquarefeet_min'],land3['lotsizesquarefeet_max'],land3['lotsizesquarefeet_quantile_0.25'],land3['lotsizesquarefeet_quantile_0.75']))
+
+def land_ser(a,b,c,d,e,f):
+    return pd.DataFrame(a,columns={b,c,d,e,f})
+def land_fill_concat(a,b,c):
+    return reduce(lambda up,down:pd.concat([up,down],axis=0),[a,b,c])
+land30=land_ser(land3,'parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc')
+land40=land_ser(land4,'parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc')
+land50=land_ser(land5,'parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc')
+land6=land_fill_concat(land30,land40,land50)
+del land30,land40,land50
+def quant_i(a,b,i):
+    return a[b].quantile(q=[i]).sum()
+def fill_zero(a,b,qua):
+    m0=pd.DataFrame(a,columns={'parcelid',b})
+    a=a.drop([b],axis=1)
+    m1=m0[m0[b]>=qua]
+    m2=m0[m0[b]<qua]
+    rand1=quant_i(m1,b,0.25)
+    rand2=quant_i(m1,b,0.75)
+    m2[b]=list(map(lambda m:m+random.randint(int(rand1),int(rand2)),m2[b]))
+    m0=pd.concat([m1,m2],axis=0)
+    a=pd.merge(m0,a,on='parcelid',how='left')
+    return a
+land6=fill_zero(land6,'landtaxvaluedollarcnt',100)    
+land6=fill_zero(land6,'lotsizesquarefeet',100)
+land2=land_ser(land2,'parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc')
+land6=land_ser(land6,'parcelid','landtaxvaluedollarcnt','lotsizesquarefeet','propertycountylandusecode','propertyzoningdesc')
+land_all=pd.concat([land2,land6],axis=0)
+del land2,land3,land4,land5,land6
+
+land_all.to_csv('./data/prop_land_new.csv',index=None)
